@@ -2,7 +2,7 @@ const express = require('express');
 
 const app = express();
 app.use(express.static('.'));
-const port = process.env.PORT || 3001;
+const port = process.env.PORT || 3000;
 
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
