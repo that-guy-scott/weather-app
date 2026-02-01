@@ -318,6 +318,91 @@
             align-items: center;
         }
 
+        /* FORECAST */
+        .forecast {
+            padding: 14px 14px 12px;
+        }
+
+        .forecastStrip {
+            display: flex;
+            gap: 10px;
+            overflow: auto;
+            padding: 6px;
+            scroll-snap-type: x mandatory;
+        }
+
+        .forecastStrip::-webkit-scrollbar {
+            height: 10px;
+        }
+
+        .forecastStrip::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, .14);
+            border-radius: 99px;
+        }
+
+        .dayCard {
+            min-width: 110px;
+            scroll-snap-align: start;
+            padding: 14px 12px;
+            border-radius: 18px;
+            border: 1px solid rgba(255, 255, 255, .10);
+            background: rgba(255, 255, 255, .06);
+            text-align: center;
+            transition: transform .15s, background .15s, border-color .15s;
+        }
+
+        .dayCard:hover {
+            transform: translateY(-2px);
+            background: rgba(255, 255, 255, .10);
+            border-color: rgba(255, 255, 255, .18);
+        }
+
+        .dayCard.today {
+            background: rgba(255, 255, 255, .14);
+            border-color: rgba(255, 255, 255, .22);
+        }
+
+        .dayCard .dayName {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--muted);
+            margin-bottom: 8px;
+        }
+
+        .dayCard .dayIcon {
+            font-size: 22px;
+            margin: 6px 0;
+            opacity: .95;
+        }
+
+        .dayCard .temps {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .dayCard .hi {
+            font-size: 16px;
+            font-weight: 900;
+        }
+
+        .dayCard .lo {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--muted2);
+        }
+
+        .dayCard .precip {
+            font-size: 11px;
+            color: var(--muted2);
+            margin-top: 8px;
+            display: flex;
+            justify-content: center;
+            gap: 5px;
+            align-items: center;
+        }
+
         /* CHART */
         .chart {
             padding: 14px;
@@ -790,6 +875,15 @@
           </div>
         </div>
 
+        <div class="card forecast">
+          <div class="cardTitle">
+            <span>7-Day Forecast</span>
+          </div>
+          <div class="forecastStrip" id="forecastStrip">
+            ${renderForecast()}
+          </div>
+        </div>
+
         <div class="card hourly">
           <div class="cardTitle">
             <span>Hourly</span>
@@ -878,7 +972,12 @@
                     },
                     y: {
                         grid: {color: 'rgba(255,255,255,0.08)'},
-                        ticks: {display: false},
+                        ticks: {
+                            color: 'rgba(255,255,255,0.45)',
+                            font: {weight: '700'},
+                            callback: (value) => `${Math.round(value)}${getUnit()}`,
+                            maxTicksLimit: 5
+                        },
                         border: {display: false}
                     }
                 }
@@ -937,6 +1036,50 @@
             default:
                 return 'question';
         }
+    }
+
+    function renderForecast() {
+        if (!weatherData || !weatherData.daily) return '';
+
+        const daily = weatherData.daily;
+        let html = '';
+
+        for (let i = 0; i < daily.time.length; i++) {
+            const date = new Date(daily.time[i] + 'T00:00:00');
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const tomorrow = new Date(today);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+
+            let dayName;
+            if (date.getTime() === today.getTime()) {
+                dayName = 'Today';
+            } else if (date.getTime() === tomorrow.getTime()) {
+                dayName = 'Tomorrow';
+            } else {
+                dayName = new Intl.DateTimeFormat('en-US', { weekday: 'short' }).format(date);
+            }
+
+            const isToday = date.getTime() === today.getTime();
+            const weatherCode = daily.weather_code[i];
+            const highTemp = daily.temperature_2m_max[i];
+            const lowTemp = daily.temperature_2m_min[i];
+            const precipProb = daily.precipitation_probability_max[i];
+
+            html += `
+                <div class="dayCard ${isToday ? 'today' : ''}">
+                    <div class="dayName">${dayName}</div>
+                    <div class="dayIcon"><i class="fas fa-${getWeatherIcon(weatherCode)}"></i></div>
+                    <div class="temps">
+                        <span class="hi">${formatTemp(highTemp)}°</span>
+                        <span class="lo">${formatTemp(lowTemp)}°</span>
+                    </div>
+                    <div class="precip"><i class="fas fa-droplet" style="font-size:9px;"></i> ${precipProb}%</div>
+                </div>
+            `;
+        }
+
+        return html;
     }
 
     getLocation();
