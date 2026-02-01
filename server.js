@@ -13,9 +13,10 @@ app.use((req, res, next) => {
 
 app.get('/weather', async (req, res) => {
   console.log('Weather endpoint hit');
-  const { latitude, longitude } = req.query;
+  const { latitude, longitude, timezone } = req.query;
+  const tz = timezone || 'auto';
   try {
-    const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,precipitation,uv_index,weathercode,windspeed_10m,apparent_temperature&hourly=temperature_2m,weathercode,precipitation_probability&forecast_hours=12`);
+    const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,precipitation,uv_index,weathercode,windspeed_10m,apparent_temperature&hourly=temperature_2m,weathercode,precipitation_probability&forecast_hours=24&timezone=${encodeURIComponent(tz)}`);
     const data = await response.json();
     res.json(data);
   } catch (error) {

@@ -483,7 +483,8 @@
     }
 
     async function fetchWeather(latitude, longitude) {
-        const apiUrl = `/weather?latitude=${latitude}&longitude=${longitude}`;
+        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        const apiUrl = `/weather?latitude=${latitude}&longitude=${longitude}&timezone=${encodeURIComponent(timezone)}`;
 
         try {
             const response = await fetch(apiUrl);
@@ -670,19 +671,38 @@
         const feelsLike = current.apparent_temperature ?? current.temperature_2m;
 
         // Hourly strip (next 12h)
-        const nowHour = new Date().getHours();
+        // Extract hour directly from ISO string to avoid timezone conversion issues
+        const getHourFromISO = (isoStr) => parseInt(isoStr.split('T')[1].split(':')[0], 10);
+        const formatHourFromISO = (isoStr) => {
+            const hour = getHourFromISO(isoStr);
+            if (hour === 0) return '12 AM';
+            if (hour === 12) return '12 PM';
+            return hour > 12 ? `${hour - 12} PM` : `${hour} AM`;
+        };
+
+        // Match by date+hour prefix to handle multi-day data correctly
+        // current.time is like "2024-01-15T14:15", we want "2024-01-15T14"
+        const currentHourPrefix = current.time.substring(0, 13);
+        let startIndex = hourly.time.findIndex(t => t.substring(0, 13) === currentHourPrefix);
+        if (startIndex === -1) startIndex = 0;
+
         let hourlyHTML = '';
         for (let i = 0; i < 12; i++) {
-            const hourTime = new Date(hourly.time[i]);
-            const isNow = i === 0 || hourTime.getHours() === nowHour;
-            const timeLabel = (i === 0) ? 'Now' : hourTime.toLocaleTimeString('en-US', {hour: 'numeric'});
+            const dataIndex = startIndex + i;
+            if (dataIndex >= hourly.time.length) break;
+            const timeLabel = (i === 0) ? 'Now' : formatHourFromISO(hourly.time[dataIndex]);
+
+            // For "Now" card, use current data; for future hours, use hourly forecast
+            const isNow = (i === 0);
+            const temp = isNow ? current.temperature_2m : hourly.temperature_2m[dataIndex];
+            const weatherCode = isNow ? current.weathercode : hourly.weathercode[dataIndex];
 
             hourlyHTML += `
-      <div class="hour ${i === 0 ? 'now' : ''}">
+      <div class="hour ${isNow ? 'now' : ''}">
         <div class="t">${timeLabel}</div>
-        <div class="i"><i class="fas fa-${getWeatherIcon(hourly.weathercode[i])}"></i></div>
-        <div class="n">${formatTemp(hourly.temperature_2m[i])}°</div>
-        <div class="p"><i class="fas fa-droplet" style="font-size:10px;"></i> ${hourly.precipitation_probability[i]}%</div>
+        <div class="i"><i class="fas fa-${getWeatherIcon(weatherCode)}"></i></div>
+        <div class="n">${formatTemp(temp)}°</div>
+        <div class="p"><i class="fas fa-droplet" style="font-size:10px;"></i> ${hourly.precipitation_probability[dataIndex]}%</div>
       </div>
     `;
         }
